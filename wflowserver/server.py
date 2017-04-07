@@ -3,8 +3,9 @@ import recastcelery.backendtasks
 from recastcelery.fromenvapp import app as celery_app
 from recastcelery.messaging import socketlog, get_stored_messages
 from flask import Flask, request, jsonify
-import uuid
 import jobdb
+import wflowhandlers
+import uuid
 import logging
 
 logging.basicConfig(level = logging.INFO)
@@ -16,16 +17,17 @@ SECRET_KEY = "asdfasdfasdf"
 @app.route('/workflow_submit', methods = ['POST'])
 def wflow_submit():
     workflow_spec = request.json
+    queue = workflow_spec.pop('queue','default')
     jobguid = str(uuid.uuid4())
-    log.info('assigned jobguid {} to workflow {}'.format(jobguid,workflow_spec))
-    workflow_spec['jobguid'] = jobguid
-    queue = workflow_spec.get('queue','default')
-    log.info('submitting workflow to queue {}'.format(queue,workflow_spec))
+
+    context = wflowhandlers.request_to_context(workflow_spec, jobguid)
+
+    log.info('submitting workflow to queue {}'.format(queue,context))
     result = recastcelery.backendtasks.run_analysis.apply_async((
                                                      recastcelery.backendtasks.setupFromURL,
                                                      recastcelery.backendtasks.generic_onsuccess,
                                                      recastcelery.backendtasks.cleanup,
-                                                     workflow_spec),
+                                                     context),
                                                      queue = queue)
 
     jobdb.register_job(jobguid,result.id)
