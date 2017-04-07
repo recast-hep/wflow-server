@@ -4,7 +4,7 @@ import logging
 log = logging.getLogger(__name__)
 
 entrypoint_map = {
-    'yadage': 'recastyadage.backendtasks:recast'
+    'yadage': 'yadageworker.backendtasks:recast'
 }
 
 def entrypoint(wflowtype):
