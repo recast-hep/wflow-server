@@ -1,0 +1,10 @@
+sudo: required
+services:
+- docker
+language: python
+python:
+- '2.7'
+script:
+- docker build -t yadage/wflowserver:git-"$TRAVIS_BRANCH" .
+- docker login -u $DOCKERLOGIN -p $(echo $DOCKERPW|base64 -d)
+- docker push yadage/wflowserver:git-"$TRAVIS_BRANCH"
