@@ -5,9 +5,9 @@ language: python
 python:
 - '2.7'
 script:
-- docker build -t yadage/wflowserver:git-"$TRAVIS_BRANCH" .
+- docker build -t recast/wflowserver:git-"$TRAVIS_BRANCH" .
 - docker login -u $DOCKERLOGIN -p $(echo $DOCKERPW|base64 -d)
-- docker push yadage/wflowserver:git-"$TRAVIS_BRANCH"
+- docker push recast/wflowserver:git-"$TRAVIS_BRANCH"
 env:
   global:
   - secure: iD4ruMiVZ6+5QHxmSDD4UIRvAdsJIrQnc2AFeHYCQjWIB000jh6QlOABaUyVKpvm6hdFfjPviggxN+71RQu4wJ15H8t4zIJZzEMxAnwm3utntekfWmOsrhFT0ixAXnRRWbMsfn5EcfjKNRKGeoFd1lDDKR2t14yriWd9db2cQWx0ibKT6z69lsAFJ83yUiIq6kPU0fsJcOA2yW6HRTly+lWgNvEO1t3nj0pOSeO00XzZ7Jo+jMpCQY1l3twpzsTsx/Y2oDY38+e1DPldkHU69iE6SRbn9+TzrOU3Mj4jaKz8RxxWO/B0RkiaifsR0QLUf8GLskVRpkl9GpFTYxyz2QDjgjuqCmlfzlvEEudJTUX39c7pqD0eFIDQGakMh7KaPJmprF8AdKd9192CnU5Yr2VcuaBgEf716D1CD+oyF0GqkGgi07wJqp3ZOgX0e319/qAQBuHSCRutdziky6qYo3rJDK1nn767ZMEVqpbWd5Q6ZQ+DrGNoezFkHsoWLd4+B6WU3ChmHeb1mVQR/X4gkpegQ33g5nxyb2ecB10Zp98diMbQrqjmxRumruEvCX9LSBK3ToNEIyv/VWSfacs4HpQ2g7pahsViIWOyTFU3apVj4qlE4sZwbMBdIrAbxSnMnwZ+dXsIjm5C2JQD4o3mnY7sCfxNTViEhe37U5iJBgc=
