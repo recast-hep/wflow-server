@@ -39,7 +39,7 @@ def wflow_submit():
 @app.route('/workflow_status', methods = ['GET'])
 def wflow_status():
     wflow_ids = request.json['workflow_ids']
-    print('checking status for workflows {}'.format(wflow_ids))
+    log.info('checking status for %s workflow ids',len(wflow_ids))
     return jsonify([jobdb.job_status(wflowid) for wflowid in wflow_ids])
 
 @app.route('/workflow_msgs', methods = ['GET'])
