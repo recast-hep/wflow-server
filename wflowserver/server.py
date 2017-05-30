@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 import jobdb
 import wflowhandlers
 import uuid
+import json
 import logging
 
 logging.basicConfig(level = logging.INFO)
@@ -41,6 +42,13 @@ def wflow_status():
     wflow_ids = request.json['workflow_ids']
     log.info('checking status for %s workflow ids',len(wflow_ids))
     return jsonify([jobdb.job_status(wflowid) for wflowid in wflow_ids])
+
+@app.route('/subjob_msgs', methods = ['GET'])
+def subjob_msg():
+    subjob_id = request.json['subjob_id']
+    topic     = request.json['topic']
+    json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE']),os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic)).readlines()
+    return jsonify([json.loads(line) for line in json_lines])
 
 @app.route('/workflow_msgs', methods = ['GET'])
 def wflow_msgs():
