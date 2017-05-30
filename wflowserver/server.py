@@ -47,7 +47,7 @@ def wflow_status():
 def subjob_msg():
     subjob_id = request.json['subjob_id']
     topic     = request.json['topic']
-    json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE']),os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic)).readlines()
+    json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic))).readlines()
     return jsonify([json.loads(line) for line in json_lines])
 
 @app.route('/workflow_msgs', methods = ['GET'])
