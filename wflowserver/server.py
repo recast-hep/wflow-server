@@ -45,15 +45,21 @@ def wflow_status():
 def subjob_msg():
     subjob_id = request.json['subjob_id']
     topic     = request.json['topic']
-    json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic))).readlines()
-    return jsonify({'msgs':[json.loads(line) for line in json_lines]})
+    try:
+        json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic))).readlines()
+        return jsonify({'msgs':[json.loads(line) for line in json_lines]})
+    except IOError:
+        return jsonify({'msgs':[]})
 
 @app.route('/workflow_msgs', methods = ['GET'])
 def wflow_msgs():
     workflow_id = request.json['workflow_id']
     topic = request.json['topic']
-    json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id,topic))).readlines()
-    return jsonify({'msgs':[json.loads(line) for line in json_lines]})
+    try:
+        json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id,topic))).readlines()
+        return jsonify({'msgs':[json.loads(line) for line in json_lines]})
+    except IOError:
+        return jsonify({'msgs':[]})
 
 @app.route('/wflows', methods = ['GET'])
 def wflows():
@@ -65,7 +71,7 @@ def pubsub_server():
         host = os.environ['WFLOW_CELERY_REDIS_HOST'],
         db   = os.environ['WFLOW_CELERY_REDIS_DB'],
         port = os.environ['WFLOW_CELERY_REDIS_PORT'],
-        channel = 'logstash:wflowout'
+        channel = 'logstash:out'
     ))
 
 if __name__ == '__main__':
