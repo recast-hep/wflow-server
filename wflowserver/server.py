@@ -51,13 +51,13 @@ def subjob_msg():
 @app.route('/workflow_msgs', methods = ['GET'])
 def wflow_msgs():
     workflow_id = request.json['workflow_id']
-    json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id))).readlines()
+    topic = request.json['topic']
+    json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id,topic))).readlines()
     return jsonify({'msgs':[json.loads(line) for line in json_lines]})
 
 @app.route('/wflows', methods = ['GET'])
-def jobs():
+def wflows():
     return jsonify({'wflows':wflowdb.all_wflows()})
-
 
 @app.route('/pubsub_server', methods = ['GET'])
 def pubsub_server():
