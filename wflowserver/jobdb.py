@@ -2,12 +2,12 @@ import logging
 import redis
 import os
 import celery.result
-from recastcelery.fromenvapp import app
+from wflowcelery.fromenvapp import app
 def wflow_job_db():
    return redis.StrictRedis(
-                host = os.environ['RECAST_CELERY_REDIS_HOST'],
-                db   = os.environ['RECAST_CELERY_REDIS_DB'],
-                port = os.environ['RECAST_CELERY_REDIS_PORT'],
+                host = os.environ['WFLOW_CELERY_REDIS_HOST'],
+                db   = os.environ['WFLOW_CELERY_REDIS_DB'],
+                port = os.environ['WFLOW_CELERY_REDIS_PORT'],
           ) 
 
 log = logging.getLogger(__name__)

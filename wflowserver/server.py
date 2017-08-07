@@ -1,7 +1,6 @@
 import os
-import recastcelery.backendtasks
-from recastcelery.fromenvapp import app as celery_app
-from recastcelery.messaging import socketlog, get_stored_messages
+import wflowcelery.backendtasks
+from wflowcelery.fromenvapp import app as celery_app
 from flask import Flask, request, jsonify
 import jobdb
 import wflowhandlers
@@ -24,15 +23,14 @@ def wflow_submit():
     context = wflowhandlers.request_to_context(workflow_spec, jobguid)
 
     log.info('submitting workflow to queue {}'.format(queue,context))
-    result = recastcelery.backendtasks.run_analysis.apply_async((
-                                                     recastcelery.backendtasks.setupFromURL,
-                                                     recastcelery.backendtasks.generic_onsuccess,
-                                                     recastcelery.backendtasks.cleanup,
+    result = wflowcelery.backendtasks.run_analysis.apply_async((
+                                                     wflowcelery.backendtasks.setupFromURL,
+                                                     wflowcelery.backendtasks.generic_onsuccess,
+                                                     wflowcelery.backendtasks.cleanup,
                                                      context),
                                                      queue = queue)
 
     jobdb.register_job(jobguid,result.id)
-    socketlog(jobguid,'workflow registered. processed by celery id: {}'.format(result.id))
     return jsonify({
         'id':jobguid
     })
@@ -41,32 +39,32 @@ def wflow_submit():
 def wflow_status():
     wflow_ids = request.json['workflow_ids']
     log.info('checking status for %s workflow ids',len(wflow_ids))
-    return jsonify([jobdb.job_status(wflowid) for wflowid in wflow_ids])
+    return jsonify({'status_codes': [jobdb.job_status(wflowid) for wflowid in wflow_ids]})
 
 @app.route('/subjob_msgs', methods = ['GET'])
 def subjob_msg():
     subjob_id = request.json['subjob_id']
     topic     = request.json['topic']
     json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic))).readlines()
-    return jsonify([json.loads(line) for line in json_lines])
+    return jsonify({'msgs':[json.loads(line) for line in json_lines]})
 
 @app.route('/workflow_msgs', methods = ['GET'])
 def wflow_msgs():
-    return jsonify(get_stored_messages(request.json['workflow_id']))
+    return jsonify({'msgs':[]})
 
 @app.route('/jobs', methods = ['GET'])
 def jobs():
-    return jsonify(jobdb.all_jobs())
+    return jsonify({'jobs':jobdb.all_jobs()})
 
 
 @app.route('/pubsub_server', methods = ['GET'])
 def pubsub_server():
     return jsonify(dict(
-        host = os.environ['RECAST_CELERY_REDIS_HOST'],
-        db   = os.environ['RECAST_CELERY_REDIS_DB'],
-        port = os.environ['RECAST_CELERY_REDIS_PORT'],
-        channel = 'socket.io#emitter'
+        host = os.environ['WFLOW_CELERY_REDIS_HOST'],
+        db   = os.environ['WFLOW_CELERY_REDIS_DB'],
+        port = os.environ['WFLOW_CELERY_REDIS_PORT'],
+        channel = 'logstash:wflowout'
     ))
 
 if __name__ == '__main__':
-    app.run(host = '0.0.0.0')
+    app.run(host = '0.0.0.0', port=os.environ.get('WFLOW_SERVER_PORT',5000))
