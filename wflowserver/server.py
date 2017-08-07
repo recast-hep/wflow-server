@@ -2,7 +2,7 @@ import os
 import wflowcelery.backendtasks
 from wflowcelery.fromenvapp import app as celery_app
 from flask import Flask, request, jsonify
-import jobdb
+import wflowdb
 import wflowhandlers
 import uuid
 import json
@@ -30,7 +30,7 @@ def wflow_submit():
                                                      context),
                                                      queue = queue)
 
-    jobdb.register_job(jobguid,result.id)
+    wflowdb.register_wflow(jobguid,result.id)
     return jsonify({
         'id':jobguid
     })
@@ -39,7 +39,7 @@ def wflow_submit():
 def wflow_status():
     wflow_ids = request.json['workflow_ids']
     log.info('checking status for %s workflow ids',len(wflow_ids))
-    return jsonify({'status_codes': [jobdb.job_status(wflowid) for wflowid in wflow_ids]})
+    return jsonify({'status_codes': [wflowdb.wflow_status(wflowid) for wflowid in wflow_ids]})
 
 @app.route('/subjob_msgs', methods = ['GET'])
 def subjob_msg():
@@ -50,11 +50,13 @@ def subjob_msg():
 
 @app.route('/workflow_msgs', methods = ['GET'])
 def wflow_msgs():
-    return jsonify({'msgs':[]})
+    workflow_id = request.json['workflow_id']
+    json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id))).readlines()
+    return jsonify({'msgs':[json.loads(line) for line in json_lines]})
 
-@app.route('/jobs', methods = ['GET'])
+@app.route('/wflows', methods = ['GET'])
 def jobs():
-    return jsonify({'jobs':jobdb.all_jobs()})
+    return jsonify({'wflows':wflowdb.all_wflows()})
 
 
 @app.route('/pubsub_server', methods = ['GET'])

@@ -4,7 +4,7 @@ import logging
 log = logging.getLogger(__name__)
 
 entrypoint_map = {
-    'yadage': 'yadageworker.backendtasks:run_workflow'
+    'yadage': 'wflowyadageworker.backendtasks:run_workflow'
 }
 
 def entrypoint(wflowtype):
