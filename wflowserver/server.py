@@ -7,11 +7,16 @@ import wflowhandlers
 import uuid
 import json
 import logging
+import click
 
 logging.basicConfig(level = logging.INFO)
 log = logging.getLogger(__name__)
 app = Flask(__name__)
 
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('WFLOW_DATABSE_URI','postgres://localhost')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+wflowdb.db.init_app(app)
 SECRET_KEY = "asdfasdfasdf"
 
 @app.route('/workflow_submit', methods = ['POST'])
@@ -74,5 +79,26 @@ def pubsub_server():
         channel = 'logstash:out'
     ))
 
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.option('--create', default = True)
+def run_server(create):
+    if create:
+        with app.app_context():
+            wflowdb.db.create_all()
+    app.run(host = '0.0.0.0', port=int(os.environ.get('WFLOW_SERVER_PORT',5000)))
+
+@cli.command()
+@click.option('--recreate', default = True)
+def drop_db(recreate):
+    with app.app_context():
+        wflowdb.db.drop_all()
+        if recreate:
+            wflowdb.db.create_all()
+
+
 if __name__ == '__main__':
-    app.run(host = '0.0.0.0', port=os.environ.get('WFLOW_SERVER_PORT',5000))
+    cli()

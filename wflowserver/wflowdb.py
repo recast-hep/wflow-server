@@ -4,25 +4,26 @@ import os
 import celery.result
 from wflowcelery.fromenvapp import app
 
-def wflow_db():
-   return redis.StrictRedis(
-                host = os.environ['WFLOW_CELERY_REDIS_HOST'],
-                db   = os.environ['WFLOW_CELERY_REDIS_DB'],
-                port = os.environ['WFLOW_CELERY_REDIS_PORT'],
-          ) 
+from flask_sqlalchemy import SQLAlchemy
 
-log = logging.getLogger(__name__)
-db = wflow_db()
+db = SQLAlchemy()
 
-def celery_id(wflowguid):
-    return db.get('wflowdb:{}:celery'.format(wflowguid))
+class Workflow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    wflow_id  = db.Column(db.String(36), unique=True, nullable=False)
+    celery_id = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return '<Workflow %r>' % self.wflow_id
 
 def register_wflow(wflowguid,celeryid):
-    db.rpush('wflowdb:workflow_guids',wflowguid)
-    db.set('wflowdb:{}:celery'.format(wflowguid),celeryid)
+    wflow = Workflow(wflow_id = wflowguid, celery_id = celeryid)
+    db.session.add(wflow)
+    db.session.commit()
 
 def all_wflows():
-    return db.lrange('wflowdb:workflow_guids',0,-1)
+    return [w.wflow_id for w in Workflow.query.all()]
 
 def wflow_status(wflowguid):
-    return celery.result.AsyncResult(celery_id(wflowguid)).state
+    wflow = Workflow.query.filter_by(wflow_id=wflowguid).first()
+    return celery.result.AsyncResult(wflow.celery_id).state

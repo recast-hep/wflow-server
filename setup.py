@@ -9,7 +9,10 @@ setup(
   packages=find_packages(),
   install_requires = [
     'wflow-celery',
+    'pyyaml',
     'Flask',
+    'Flask-SQLAlchemy',
+    'psycopg2'
   ],
   entry_points = {
   },
