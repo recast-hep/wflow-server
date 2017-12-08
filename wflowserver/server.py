@@ -27,15 +27,15 @@ def wflow_submit():
 
     context = wflowhandlers.request_to_context(workflow_spec, jobguid)
 
-    log.info('submitting workflow to queue {}'.format(queue,context))
-    result = wflowcelery.backendtasks.run_analysis.apply_async((
-                                                     wflowcelery.backendtasks.setupFromURL,
-                                                     wflowcelery.backendtasks.generic_onsuccess,
-                                                     wflowcelery.backendtasks.cleanup,
-                                                     context),
-                                                     queue = queue)
-
-    wflowdb.register_wflow(jobguid,result.id)
+    # log.info('submitting workflow to queue {}'.format(queue,context))
+    # result = wflowcelery.backendtasks.run_analysis.apply_async((
+    #                                                  wflowcelery.backendtasks.setupFromURL,
+    #                                                  wflowcelery.backendtasks.generic_onsuccess,
+    #                                                  wflowcelery.backendtasks.cleanup,
+    #                                                  context),
+    #                                                  queue = queue)
+    #
+    wflowdb.register_wflow(context,queue)
     return jsonify({
         'id':jobguid
     })

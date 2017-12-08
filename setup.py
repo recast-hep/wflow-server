@@ -17,8 +17,5 @@ setup(
   entry_points = {
   },
   include_package_data = True,
-  zip_safe=False,
-  dependency_links = [
-    'https://github.com/recast-hep/wflow-celery/tarball/master#egg=wflow-celery-0.0.1'
-  ]
+  zip_safe=False
 )
