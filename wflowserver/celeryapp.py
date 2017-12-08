@@ -5,27 +5,23 @@ from celery import Celery
 log = logging.getLogger(__name__)
 app = Celery()
 
-app.conf.broker_url = 'redis://{}:{}/{}'.format(
-    os.environ.get('WFLOW_BEAT_REDIS_HOST','localhost')
-    os.environ.get('WFLOW_BEAT_REDIS_PORT','6379')
-    os.environ.get('WFLOW_BEAT_REDIS_DB','0')
-)
+app.conf.broker_url = os.environ.get('WFLOW_BEAT_BROKER','redis://localhost:6379/0')
 
 app.conf.beat_schedule = {
     'periodic-deployer': {
         'task': 'celeryapp.deployer',
-        'schedule': 1.0,
-		'options': {
-			'queue': 'private_queue'
-		}
-    },
-    'periodic-reaper': {
-        'task': 'celeryapp.reaper',
         'schedule': 10.0,
 		'options': {
 			'queue': 'private_queue'
 		}
     },
+    # 'periodic-reaper': {
+    #     'task': 'celeryapp.reaper',
+    #     'schedule': 10.0,
+	# 	'options': {
+	# 		'queue': 'private_queue'
+	# 	}
+    # },
     'periodic-state-updater': {
         'task': 'celeryapp.state_updater',
         'schedule': 10.0,
@@ -49,25 +45,29 @@ def deployer():
 
     WFLOW_NSLOTS = int(os.environ.get('WFLOW_NSLOTS','2'))
 
-    import wflowcelery.backendtasks
-    from wflowcelery.fromenvapp import app as backendapp
-    backendapp.set_current()
     with wflowserver.server.app.app_context():
         all_started = len(wdb.Workflow.query.filter_by(state = wdb.WorkflowState.STARTED).all())
+        all_registered =  wdb.Workflow.query.filter_by(state = wdb.WorkflowState.REGISTERED).all()
 
         n_openslots = WFLOW_NSLOTS - all_started
         if n_openslots > 0:
-            log.info('got %s open workflow slots so we could be submitting', n_openslots)
-            all_registered =  wdb.Workflow.query.filter_by(state = wdb.WorkflowState.REGISTERED).all()
+            log.info('got %s open workflow slots so we could be submitting. currently registered workflows %s', n_openslots ,all_registered)
             for wflow in all_registered[:n_openslots]:
-
+                log.info('working on wflow %s', wflow)
+                from wflowcelery.fromenvapp import app as backendapp
+                import wflowcelery.backendtasks
+                backendapp.set_current()
+                log.info('submitting to celery (backend version) %s', backendapp.broker_connection())
                 result = wflowcelery.backendtasks.run_analysis.apply_async(
                     ('setupFromURL','generic_onsuccess','cleanup',wflow.context),
                     queue = wflow.queue)
+                log.info('celery id is: %s', result.id)
                 wflow.celery_id = result.id
                 wflow.state = wdb.WorkflowState.STARTED
+                app.set_current()
                 log.info('submitted registered workflow %s as celery id %s'.format(wflow.wflow_id, wflow.celery_id))
                 wdb.db.session.add(wflow)
+            log.info('about to commit to session')
             wdb.db.session.commit()
         else:
             log.info('no open slots available -- please stand by...')
@@ -80,14 +80,15 @@ def state_updater():
 
     Right now this is a celery task -- but will be a Kubernetes Deployment/Object soon.
     '''
-    import wflowcelery.backendtasks
-    from wflowcelery.fromenvapp import app as backendapp
-    import celery.result
-    backendapp.set_current()
     with wflowserver.server.app.app_context():
-        all_started =  wdb.Workflow.query.filter_by(state = wdb.WorkflowState.STARTED).all()
+        all_started =  wdb.Workflow.query.all()
         for wflow in all_started:
-            celery_state = celery.result.AsyncResult(wflow.celery_id).state
+            if not wflow.celery_id: continue
+            from wflowcelery.fromenvapp import app as backendapp
+            import celery.result
+            log.info('checking result (backend version) %s', backendapp.broker_connection())
+            celery_state = celery.result.AsyncResult(wflow.celery_id, app = backendapp).state
+            log.info('celery state %s', celery_state)
             wflow.state = getattr(wdb.WorkflowState,celery_state)
             log.info('updated state for workflow %s is %s', wflow.wflow_id, wflow.state.value)
             wdb.db.session.add(wflow)
