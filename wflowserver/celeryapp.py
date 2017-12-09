@@ -10,18 +10,18 @@ app.conf.broker_url = os.environ.get('WFLOW_BEAT_BROKER','redis://localhost:6379
 app.conf.beat_schedule = {
     'periodic-deployer': {
         'task': 'celeryapp.deployer',
-        'schedule': 10.0,
+        'schedule': 1.0,
 		'options': {
 			'queue': 'private_queue'
 		}
     },
-    # 'periodic-reaper': {
-    #     'task': 'celeryapp.reaper',
-    #     'schedule': 10.0,
-	# 	'options': {
-	# 		'queue': 'private_queue'
-	# 	}
-    # },
+    'periodic-reaper': {
+        'task': 'celeryapp.reaper',
+        'schedule': 30.0,
+		'options': {
+			'queue': 'private_queue'
+		}
+    },
     'periodic-state-updater': {
         'task': 'celeryapp.state_updater',
         'schedule': 10.0,
