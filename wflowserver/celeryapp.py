@@ -46,9 +46,9 @@ def deployer():
 
     WFLOW_NSLOTS = int(os.environ.get('WFLOW_NSLOTS','2'))
     with wflowserver.server.app.app_context():
-        all_active_started = wflowdb.Workflow.query.filter(
-            or_(wflowdb.Workflow.state==wflowdb.WorkflowState.STARTED,
-                wflowdb.Workflow.state==wflowdb.WorkflowState.ACTIVE
+        all_active_started = wdb.Workflow.query.filter(
+            or_(wdb.Workflow.state==wdb.WorkflowState.STARTED,
+                wdb.Workflow.state==wdb.WorkflowState.ACTIVE
         )).all()
         all_active_started = len(all_active_started)
 
@@ -102,9 +102,9 @@ def state_updater():
     Right now this is a celery task -- but will be a Kubernetes Deployment/Object soon.
     '''
     with wflowserver.server.app.app_context():
-        all_active_started = wflowdb.Workflow.query.filter(
-            or_(wflowdb.Workflow.state==wflowdb.WorkflowState.STARTED,
-                wflowdb.Workflow.state==wflowdb.WorkflowState.ACTIVE
+        all_active_started = wdb.Workflow.query.filter(
+            or_(wdb.Workflow.state==wdb.WorkflowState.STARTED,
+                wdb.Workflow.state==wdb.WorkflowState.ACTIVE
         )).all()
         for wflow in all_active_started:
             try:
