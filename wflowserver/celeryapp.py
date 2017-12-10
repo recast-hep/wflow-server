@@ -46,9 +46,9 @@ def deployer():
 
     WFLOW_NSLOTS = int(os.environ.get('WFLOW_NSLOTS','2'))
     with wflowserver.server.app.app_context():
-        all_registered = len(wdb.Workflow.query.filter(
+        all_registered = wdb.Workflow.query.filter(
             wdb.Workflow.state==wdb.WorkflowState.REGISTERED,
-        ).all())
+        ).all()
 
         all_active_started = len(wdb.Workflow.query.filter(
             or_(wdb.Workflow.state==wdb.WorkflowState.STARTED,
