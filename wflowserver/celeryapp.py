@@ -33,6 +33,7 @@ app.conf.beat_schedule = {
 
 import wflowserver.server
 import wflowserver.wflowdb as wdb
+from sqlalchemy import or_
 
 @app.task
 def deployer():
@@ -44,12 +45,14 @@ def deployer():
     '''
 
     WFLOW_NSLOTS = int(os.environ.get('WFLOW_NSLOTS','2'))
-
     with wflowserver.server.app.app_context():
-        all_started = len(wdb.Workflow.query.filter_by(state = wdb.WorkflowState.STARTED).all())
-        all_registered =  wdb.Workflow.query.filter_by(state = wdb.WorkflowState.REGISTERED).all()
+        all_active_started = wflowdb.Workflow.query.filter(
+            or_(wflowdb.Workflow.state==wflowdb.WorkflowState.STARTED,
+                wflowdb.Workflow.state==wflowdb.WorkflowState.ACTIVE
+        )).all()
+        all_active_started = len(all_active_started)
 
-        n_openslots = WFLOW_NSLOTS - all_started
+        n_openslots = WFLOW_NSLOTS - all_active_started
         if n_openslots > 0:
             log.info('got %s open workflow slots so we could be submitting. currently registered workflows %s', n_openslots ,all_registered)
             for wflow in all_registered[:n_openslots]:
@@ -99,10 +102,11 @@ def state_updater():
     Right now this is a celery task -- but will be a Kubernetes Deployment/Object soon.
     '''
     with wflowserver.server.app.app_context():
-        all_started =  wdb.Workflow.query.all()
-        for wflow in all_started:
-            if wflow.state.value in ['REGISTERED','FAILURE','SUCCESS']: continue
-
+        all_active_started = wflowdb.Workflow.query.filter(
+            or_(wflowdb.Workflow.state==wflowdb.WorkflowState.STARTED,
+                wflowdb.Workflow.state==wflowdb.WorkflowState.ACTIVE
+        )).all()
+        for wflow in all_active_started:
             try:
                 from kubernetes import config, client
                 config.load_incluster_config()
