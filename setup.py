@@ -12,7 +12,8 @@ setup(
     'pyyaml',
     'Flask',
     'Flask-SQLAlchemy',
-    'psycopg2'
+    'psycopg2',
+    'kubernetes'
   ],
   entry_points = {
   },

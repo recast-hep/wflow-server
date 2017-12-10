@@ -12,6 +12,7 @@ import click
 logging.basicConfig(level = logging.INFO)
 log = logging.getLogger(__name__)
 app = Flask(__name__)
+app.debug = True
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('WFLOW_DATABSE_URI','postgres://localhost')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -27,18 +28,16 @@ def wflow_submit():
 
     context = wflowhandlers.request_to_context(workflow_spec, jobguid)
 
-    # log.info('submitting workflow to queue {}'.format(queue,context))
-    # result = wflowcelery.backendtasks.run_analysis.apply_async((
-    #                                                  wflowcelery.backendtasks.setupFromURL,
-    #                                                  wflowcelery.backendtasks.generic_onsuccess,
-    #                                                  wflowcelery.backendtasks.cleanup,
-    #                                                  context),
-    #                                                  queue = queue)
-    #
     wflowdb.register_wflow(context,queue)
     return jsonify({
         'id':jobguid
     })
+
+@app.route('/workflow_config', methods = ['GET'])
+def wflow_config():
+    wflow_ids = request.json['workflow_ids']
+    log.info('checking configs for %s workflow ids',len(wflow_ids))
+    return jsonify({'configs': [wflowdb.wflow_config(wflowid) for wflowid in wflow_ids]})
 
 @app.route('/workflow_status', methods = ['GET'])
 def wflow_status():

@@ -11,8 +11,8 @@ db = SQLAlchemy()
 
 class WorkflowState(enum.Enum):
     REGISTERED = "REGISTERED"
-    PENDING    = "PENDING"
     STARTED    = "STARTED"
+    ACTIVE     = "ACTIVE"
     FAILURE    = "FAILURE"
     SUCCESS    = "SUCCESS"
 
@@ -41,8 +41,13 @@ def register_wflow(context,queue):
 def all_wflows():
     return [w.wflow_id for w in Workflow.query.all()]
 
-def wflow_status(wflowguid):
+def wflow_config(wflowguid):
+    wflow = Workflow.query.filter_by(wflow_id=wflowguid).first()
+    if not wflow:
+        raise RuntimeError('wflow not found for id %s %s', wflowguid, Workflow.query.all())
+    return wflow.context
 
+def wflow_status(wflowguid):
     wflow = Workflow.query.filter_by(wflow_id=wflowguid).first()
     if not wflow:
         raise RuntimeError('wflow not found for id %s %s', wflowguid, Workflow.query.all())
