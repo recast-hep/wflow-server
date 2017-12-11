@@ -8,6 +8,7 @@ setup(
   author_email = 'lukas.heinrich@cern.ch',
   packages=find_packages(),
   install_requires = [
+    'celery',
     'wflow-backend',
     'pyyaml',
     'Flask',
