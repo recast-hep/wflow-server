@@ -72,7 +72,7 @@ def pubsub_server():
     return jsonify(
         url = os.environ['WFLOW_BACKEND_REDIS_URL'],
         channel = 'logstash:out'
-    ))
+    )
 
 @click.group()
 def cli():
