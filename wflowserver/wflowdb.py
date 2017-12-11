@@ -1,8 +1,6 @@
 import logging
 import redis
 import os
-import celery.result
-from wflowcelery.fromenvapp import app
 import enum
 from flask_sqlalchemy import SQLAlchemy
 

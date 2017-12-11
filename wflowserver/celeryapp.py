@@ -60,16 +60,6 @@ def deployer():
             log.info('got %s open workflow slots so we could be submitting. currently registered workflows %s', n_openslots ,all_registered)
             for wflow in all_registered[:n_openslots]:
                 log.info('working on wflow %s', wflow)
-                # from wflowcelery.fromenvapp import app as backendapp
-                # import wflowcelery.backendtasks
-                # backendapp.set_current()
-                # log.info('submitting to celery (backend version) %s', backendapp.broker_connection())
-                # result = wflowcelery.backendtasks.run_analysis.apply_async(
-                #     ('setupFromURL','generic_onsuccess','cleanup',wflow.wflow_id),
-                #     queue = wflow.queue)
-                # log.info('celery id is: %s', result.id)
-                # wflow.celery_id = result.id
-
                 try:
                     from kubernetes import config, client
                     config.load_incluster_config()
@@ -129,14 +119,6 @@ def state_updater():
                     client.CoreV1Api().delete_collection_namespaced_pod('default',label_selector = 'job-name={}'.format(wflowname))
             except:
                 log.exception()
-            # if not wflow.celery_id: continue
-            # from wflowcelery.fromenvapp import app as backendapp
-            # import celery.result
-            # log.info('checking result (backend version) %s', backendapp.broker_connection())
-            # celery_state = celery.result.AsyncResult(wflow.celery_id, app = backendapp).state
-            # log.info('celery state %s', celery_state)
-            # wflow.state = getattr(wdb.WorkflowState,celery_state)
-            # log.info('updated state for workflow %s is %s', wflow.wflow_id, wflow.state.value)
             wdb.db.session.add(wflow)
         wdb.db.session.commit()
     log.info('all states updated')

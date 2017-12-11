@@ -1,6 +1,4 @@
 import os
-import wflowcelery.backendtasks
-from wflowcelery.fromenvapp import app as celery_app
 from flask import Flask, request, jsonify
 import wflowdb
 import wflowhandlers
@@ -71,10 +69,8 @@ def wflows():
 
 @app.route('/pubsub_server', methods = ['GET'])
 def pubsub_server():
-    return jsonify(dict(
-        host = os.environ['WFLOW_CELERY_REDIS_HOST'],
-        db   = os.environ['WFLOW_CELERY_REDIS_DB'],
-        port = os.environ['WFLOW_CELERY_REDIS_PORT'],
+    return jsonify(
+        url = os.environ['WFLOW_BACKEND_REDIS_URL']
         channel = 'logstash:out'
     ))
 
