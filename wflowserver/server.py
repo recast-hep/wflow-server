@@ -70,7 +70,7 @@ def wflows():
 @app.route('/pubsub_server', methods = ['GET'])
 def pubsub_server():
     return jsonify(
-        url = os.environ['WFLOW_BACKEND_REDIS_URL']
+        url = os.environ['WFLOW_BACKEND_REDIS_URL'],
         channel = 'logstash:out'
     ))
 
