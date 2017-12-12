@@ -63,10 +63,9 @@ def status_noninteractive(wflowid):
 
 def delete_noninteractive(wflowid):
     wflowname = 'wflow-nonint-{}'.format(wflowid)
-    j = client.BatchV1Api().read_namespaced_job(wflowname,'default')
     log.info('deleting job %s', wflowname)
-    client.BatchV1Api().delete_namespaced_job(wflowname,'default',j.spec, propagation_policy = 'Background')
-    client.CoreV1Api().delete_collection_namespaced_pod('default',label_selector = 'job-name={}'.format(wflowname))
+    client.BatchV1Api().delete_namespaced_job(wflowname,'default',{}, propagation_policy = 'Background')
+    client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'job-name={}'.format(wflowname))
 
 
 def deploy_interactive(wflowid):
@@ -95,6 +94,13 @@ def status_interactive(wflowid):
         'active': available_replicas > 0
     }
 
+def delete_interactive(wflowid):
+    wflowname = 'wflow-int-{}'.format(wflowid)
+    log.info('deleting interactive deployment %s', wflowname)
+    client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
+    client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname)')
+    client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'app={}'.format(wflowname))
+    client.CoreV1Api().delete_namespaced_service(wflowname,'default')
 
 @app.task
 def deployer():
@@ -122,11 +128,11 @@ def deployer():
             for wflow in all_registered[:n_openslots]:
                 log.info('working on wflow %s', wflow)
                 try:
-                    job,_ = deploy_noninteractive(wflow.wflow_id)
-                    wflow.state = wdb.WorkflowState.STARTED
-
-                    # deployment, service = deploy_interactive(wflow.wflowid)
+                    # job,_ = deploy_noninteractive(wflow.wflow_id)
                     # wflow.state = wdb.WorkflowState.STARTED
+
+                    deployment, service = deploy_interactive(wflow.wflowid)
+                    wflow.state = wdb.WorkflowState.STARTED
 
                 except:
                     log.exception()
@@ -154,7 +160,9 @@ def state_updater():
         )).all()
         for wflow in all_active_started:
             try:
-                status = status_noninteractive(wflow.wflow_id)
+                # status = status_noninteractive(wflow.wflow_id)
+                status = status_interactive(wflow.wflow_id)
+
                 if status['ready']:
                     if status['success']:
                         wflow.state = wdb.WorkflowState.SUCCESS
@@ -163,7 +171,8 @@ def state_updater():
                 else:
                     wflow.state = wdb.WorkflowState.ACTIVE
                 if wflow.state.value in ['FAILURE','SUCCESS']:
-                    delete_noninteractive(wflow.wflow_id)
+                    # delete_noninteractive(wflow.wflow_id)
+                    delete_interactive(wflow.wflow_id)
             except:
                 log.exception()
             wdb.db.session.add(wflow)
