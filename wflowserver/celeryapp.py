@@ -72,7 +72,7 @@ def deploy_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     deployment, service = yaml.load_all(open('/yadage_job/int_template'))
     deployment['metadata']['name'] = wflowname
-    deployment['spec']['metadata']['labels']['app'] = wflowname
+    deployment['spec']['template']['metadata']['labels']['app'] = wflowname
     service['metadata']['name'] = wflowname
     service['spec']['selector']['app'] = wflowname
 
