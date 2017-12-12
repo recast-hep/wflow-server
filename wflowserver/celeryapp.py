@@ -131,7 +131,7 @@ def deployer():
                     # job,_ = deploy_noninteractive(wflow.wflow_id)
                     # wflow.state = wdb.WorkflowState.STARTED
 
-                    deployment, service = deploy_interactive(wflow.wflowid)
+                    deployment, service = deploy_interactive(wflow.wflow_id)
                     wflow.state = wdb.WorkflowState.STARTED
 
                 except:
