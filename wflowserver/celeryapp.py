@@ -73,6 +73,13 @@ def deploy_interactive(wflowid):
     deployment, service = yaml.load_all(open('/yadage_job/int_template'))
     deployment['metadata']['name'] = wflowname
     deployment['spec']['template']['metadata']['labels']['app'] = wflowname
+
+
+    cmd = deployment['spec']['template']['containers'][0]['command'][-1]
+    cmd = cmd.format(wflowid = wflowid)
+    deployment['spec']['template']['containers'][0]['command'][-1] = cmd
+
+
     service['metadata']['name'] = wflowname
     service['spec']['selector']['app'] = wflowname
 
