@@ -122,7 +122,7 @@ def deployer():
             for wflow in all_registered[:n_openslots]:
                 log.info('working on wflow %s', wflow)
                 try:
-                    job,_ = deploy_noninteractive(wflow.wflowid)
+                    job,_ = deploy_noninteractive(wflow.wflow_id)
                     wflow.state = wdb.WorkflowState.STARTED
 
                     # deployment, service = deploy_interactive(wflow.wflowid)
