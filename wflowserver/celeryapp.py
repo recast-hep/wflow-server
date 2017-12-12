@@ -75,9 +75,9 @@ def deploy_interactive(wflowid):
     deployment['spec']['template']['metadata']['labels']['app'] = wflowname
 
 
-    cmd = deployment['spec']['template']['containers'][0]['command'][-1]
+    cmd = deployment['spec']['template']['spec']['containers'][0]['command'][-1]
     cmd = cmd.format(wflowid = wflowid)
-    deployment['spec']['template']['containers'][0]['command'][-1] = cmd
+    deployment['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
 
 
     service['metadata']['name'] = wflowname
