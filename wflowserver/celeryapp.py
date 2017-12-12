@@ -1,5 +1,6 @@
 import os
 import logging
+import requests
 from celery import Celery
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,66 @@ app.conf.beat_schedule = {
 import wflowserver.server
 import wflowserver.wflowdb as wdb
 from sqlalchemy import or_
+import yaml
+from kubernetes import config, client
+config.load_incluster_config()
+
+def deploy_noninteractive(wflowid):
+    wflowname = 'wflow-nonint-{}'.format(wflowid)
+    spec = yaml.load(open('/yadage_job/job_template'))
+    spec['metadata']['name'] = wflowname
+    spec['spec']['template']['metadata']['name'] = wflowname
+
+    cmd = spec['spec']['template']['spec']['containers'][0]['command'][-1]
+    cmd = cmd.format(wflowid = wflowid)
+    spec['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
+
+    j = client.BatchV1Api().create_namespaced_job('default',spec)
+    return j, None
+
+def status_noninteractive(wflowid):
+    wflowname = 'wflow-nonint-{}'.format(wflowid)
+    j = client.BatchV1Api().read_namespaced_job(wflowname,'default')
+    return {
+        'ready': j.failed or j.succeeded,
+        'success': j.succeeded and not j.failed,
+        'active': True if j.status.active else False
+    }
+
+def delete_noninteractive(wflowid):
+    wflowname = 'wflow-nonint-{}'.format(wflowid)
+    j = client.BatchV1Api().read_namespaced_job(wflowname,'default')
+    log.info('deleting job %s', wflowname)
+    client.BatchV1Api().delete_namespaced_job(wflowname,'default',j.spec, propagation_policy = 'Background')
+    client.CoreV1Api().delete_collection_namespaced_pod('default',label_selector = 'job-name={}'.format(wflowname))
+
+
+def deploy_interactive(wflowid):
+    wflowname = 'wflow-int-{}'.format(wflowid)
+    deployment, service = yaml.load_all(open('/yadage_job/interactive_template'))
+    deployment['metadata']['name'] = wflowname
+    deployment['spec']['metadata']['labels']['app'] = wflowname
+    service['metadata']['name'] = wflowname
+    service['spec']['selector']['app'] = wflowname
+
+
+    d = client.ExtensionsV1beta1Api().create_namespaced_deployment('default',deployment)
+    s = client.CoreV1Api().create_namespaced_service('default',service)
+    return d,s
+
+
+def status_interactive(wflowid):
+    wflowname = 'wflow-int-{}'.format(wflowid)
+
+    deployment_status  = client.ExtensionsV1beta1Api().read_namespaced_deployment(wflowname,'default').status
+    available_replicas = deployment_status.replicas - deployment_status.unavailable_replicas
+    status = requests.get('http://test.default.svc.cluster.local:8080/status').json()
+    return {
+        'ready': status['ready'],
+        'success': status['success'],
+        'active': available_replicas > 0
+    }
+
 
 @app.task
 def deployer():
@@ -61,20 +122,12 @@ def deployer():
             for wflow in all_registered[:n_openslots]:
                 log.info('working on wflow %s', wflow)
                 try:
-                    from kubernetes import config, client
-                    config.load_incluster_config()
-                    import yaml
-                    wflowname = 'wflow-{}'.format(wflow.wflow_id)
-                    spec = yaml.load(open('/yadage_job/job_template'))
-                    spec['metadata']['name'] = wflowname
-                    spec['spec']['template']['metadata']['name'] = wflowname
-
-                    cmd = spec['spec']['template']['spec']['containers'][0]['command'][-1]
-                    cmd = cmd.format(wflowid = wflow.wflow_id)
-                    spec['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
-
-                    j = client.BatchV1Api().create_namespaced_job('default',spec)
+                    job,_ = deploy_noninteractive(wflow.wflowid)
                     wflow.state = wdb.WorkflowState.STARTED
+
+                    # deployment, service = deploy_interactive(wflow.wflowid)
+                    # wflow.state = wdb.WorkflowState.STARTED
+
                 except:
                     log.exception()
 
@@ -101,22 +154,16 @@ def state_updater():
         )).all()
         for wflow in all_active_started:
             try:
-                from kubernetes import config, client
-                config.load_incluster_config()
-                wflowname = 'wflow-{}'.format(wflow.wflow_id)
-                j = client.BatchV1Api().read_namespaced_job(wflowname,'default')
-                print(j.status)
-
-                if j.status.failed:
-                    wflow.state = wdb.WorkflowState.FAILURE
-                if j.status.succeeded:
-                    wflow.state = wdb.WorkflowState.SUCCESS
-                if j.status.active:
+                status = status_noninteractive(wflow.wflow_id)
+                if status['ready']:
+                    if status['success']:
+                        wflow.state = wdb.WorkflowState.SUCCESS
+                    else:
+                        wflow.state = wdb.WorkflowState.FAILURE
+                else:
                     wflow.state = wdb.WorkflowState.ACTIVE
                 if wflow.state.value in ['FAILURE','SUCCESS']:
-                    log.info('deleting job %s', wflowname)
-                    client.BatchV1Api().delete_namespaced_job(wflowname,'default',j.spec, propagation_policy = 'Background')
-                    client.CoreV1Api().delete_collection_namespaced_pod('default',label_selector = 'job-name={}'.format(wflowname))
+                    delete_noninteractive(wflow.wflow_id)
             except:
                 log.exception()
             wdb.db.session.add(wflow)
