@@ -98,7 +98,7 @@ def delete_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     log.info('deleting interactive deployment %s', wflowname)
     client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
-    client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname)')
+    client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname))
     client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'app={}'.format(wflowname))
     client.CoreV1Api().delete_namespaced_service(wflowname,'default')
 
