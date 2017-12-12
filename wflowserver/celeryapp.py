@@ -56,8 +56,8 @@ def status_noninteractive(wflowid):
     wflowname = 'wflow-nonint-{}'.format(wflowid)
     j = client.BatchV1Api().read_namespaced_job(wflowname,'default')
     return {
-        'ready': j.failed or j.succeeded,
-        'success': j.succeeded and not j.failed,
+        'ready': j.status.failed or j.status.succeeded,
+        'success': j.status.succeeded and not j.status.failed,
         'active': True if j.status.active else False
     }
 
