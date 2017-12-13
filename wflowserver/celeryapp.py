@@ -36,6 +36,7 @@ import wflowserver.server
 import wflowserver.wflowdb as wdb
 from sqlalchemy import or_
 import yaml
+import requests
 from kubernetes import config, client
 config.load_incluster_config()
 
@@ -88,13 +89,18 @@ def deploy_interactive(wflowid):
     s = client.CoreV1Api().create_namespaced_service('default',service)
     return d,s
 
-
+import requests
+from kubernetes import config, client
+config.load_incluster_config()
 def status_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
 
     deployment_status  = client.ExtensionsV1beta1Api().read_namespaced_deployment(wflowname,'default').status
-    available_replicas = deployment_status.replicas - deployment_status.unavailable_replicas
-    status = requests.get('http://test.default.svc.cluster.local:8080/status').json()
+    unavailable = deployment_status.unavailable_replicas
+    unavailable = 0 if unavailable is None else unavailable
+    available_replicas = deployment_status.replicas - unavailable
+    status = requests.get('http://{}.default.svc.cluster.local:8080/status'.format(wflowname)).json()
+    log.info('status is %s', status)
     return {
         'ready': status['ready'],
         'success': status['success'],
