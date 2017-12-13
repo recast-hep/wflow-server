@@ -110,6 +110,8 @@ def status_interactive(wflowid):
 def delete_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     log.info('deleting interactive deployment %s', wflowname)
+    status = requests.get('http://{}.default.svc.cluster.local:8080/finalize'.format(wflowname)).json()
+    log.info('finalization status %s', status)
     client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
     client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname))
     client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'app={}'.format(wflowname))
