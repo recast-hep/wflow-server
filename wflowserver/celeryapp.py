@@ -146,15 +146,13 @@ def deployer():
 
                     deployment, service = deploy_interactive(wflow.wflow_id)
                     wflow.state = wdb.WorkflowState.STARTED
-
+                    log.info('about to commit to session')
+                    wdb.db.session.add(wflow)
+                    wdb.db.session.commit()
                 except:
-                    log.exception()
-
+                    log.exception('api acces failed')
                 # app.set_current()
                 log.info('submitted registered workflow %s as celery id %s'.format(wflow.wflow_id, wflow.celery_id))
-                wdb.db.session.add(wflow)
-            log.info('about to commit to session')
-            wdb.db.session.commit()
         else:
             log.info('no open slots available -- please stand by...')
 
@@ -171,8 +169,11 @@ def state_updater():
             or_(wdb.Workflow.state==wdb.WorkflowState.STARTED,
                 wdb.Workflow.state==wdb.WorkflowState.ACTIVE
         )).all()
+        log.info('checking %s active or started workflows', len(all_active_started))
         for wflow in all_active_started:
             try:
+                log.info('checking wflow status for %s', wflow.wflow_id)
+
                 # status = status_noninteractive(wflow.wflow_id)
                 status = status_interactive(wflow.wflow_id)
 
@@ -186,10 +187,10 @@ def state_updater():
                 if wflow.state.value in ['FAILURE','SUCCESS']:
                     # delete_noninteractive(wflow.wflow_id)
                     delete_interactive(wflow.wflow_id)
+                wdb.db.session.add(wflow)
+                wdb.db.session.commit()
             except:
-                log.exception()
-            wdb.db.session.add(wflow)
-        wdb.db.session.commit()
+                log.exception('api access failed')
     log.info('all states updated')
 
 @app.task
