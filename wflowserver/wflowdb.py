@@ -11,14 +11,13 @@ class WorkflowState(enum.Enum):
     FAILURE    = "FAILURE"
     SUCCESS    = "SUCCESS"
 
+
 class Workflow(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     wflow_id  = db.Column(db.String(36), unique=True, nullable=False)
     context   = db.Column(db.JSON())
     state     = db.Column(db.Enum(WorkflowState))
-
-    queue     = db.Column(db.String(20))
-    celery_id  = db.Column(db.String(36))
+    queue      = db.Column(db.String(20))
 
     def __repr__(self):
         return '<Workflow %r>' % self.wflow_id

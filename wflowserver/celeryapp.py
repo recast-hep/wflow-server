@@ -2,6 +2,13 @@ import os
 import logging
 import requests
 from celery import Celery
+import wflowserver.server
+import wflowserver.wflowdb as wdb
+from sqlalchemy import or_
+import yaml
+import requests
+from kubernetes import config, client
+config.load_incluster_config()
 
 log = logging.getLogger(__name__)
 app = Celery()
@@ -11,34 +18,27 @@ app.conf.broker_url = os.environ.get('WFLOW_BEAT_BROKER','redis://localhost:6379
 app.conf.beat_schedule = {
     'periodic-deployer': {
         'task': 'celeryapp.deployer',
-        'schedule': 1.0,
+        'schedule': 10.0,
 		'options': {
 			'queue': 'private_queue'
 		}
     },
     'periodic-reaper': {
         'task': 'celeryapp.reaper',
-        'schedule': 30.0,
+        'schedule': 60.0,
 		'options': {
 			'queue': 'private_queue'
 		}
     },
     'periodic-state-updater': {
         'task': 'celeryapp.state_updater',
-        'schedule': 10.0,
+        'schedule': 20.0,
 		'options': {
 			'queue': 'private_queue'
 		}
     }
 }
 
-import wflowserver.server
-import wflowserver.wflowdb as wdb
-from sqlalchemy import or_
-import yaml
-import requests
-from kubernetes import config, client
-config.load_incluster_config()
 
 def deploy_noninteractive(wflowid):
     wflowname = 'wflow-nonint-{}'.format(wflowid)
@@ -89,8 +89,6 @@ def deploy_interactive(wflowid):
     s = client.CoreV1Api().create_namespaced_service('default',service)
     return d,s
 
-import requests
-from kubernetes import config, client
 config.load_incluster_config()
 def status_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
@@ -110,6 +108,7 @@ def status_interactive(wflowid):
 def delete_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     log.info('deleting interactive deployment %s', wflowname)
+    #this should be quick and synchronous... (otherwise need to wait for it in another way)
     status = requests.get('http://{}.default.svc.cluster.local:8080/finalize'.format(wflowname)).json()
     log.info('finalization status %s', status)
     client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
@@ -141,20 +140,21 @@ def deployer():
         if n_openslots > 0:
             log.info('got %s open workflow slots so we could be submitting. currently registered workflows %s', n_openslots ,all_registered)
             for wflow in all_registered[:n_openslots]:
-                log.info('working on wflow %s', wflow)
+                log.info('working on wflow %s %s', wflow, wflow.context)
                 try:
-                    # job,_ = deploy_noninteractive(wflow.wflow_id)
-                    # wflow.state = wdb.WorkflowState.STARTED
-
-                    deployment, service = deploy_interactive(wflow.wflow_id)
-                    wflow.state = wdb.WorkflowState.STARTED
+                    if not wflow.context['interactive']:
+                        log.info('starting non-interactive deployment')
+                        job,_ = deploy_noninteractive(wflow.wflow_id)
+                        wflow.state = wdb.WorkflowState.STARTED
+                    else:
+                        log.info('starting interactive deployment')
+                        deployment, service = deploy_interactive(wflow.wflow_id)
+                        wflow.state = wdb.WorkflowState.STARTED
                     log.info('about to commit to session')
                     wdb.db.session.add(wflow)
                     wdb.db.session.commit()
                 except:
                     log.exception('api acces failed')
-                # app.set_current()
-                log.info('submitted registered workflow %s as celery id %s'.format(wflow.wflow_id, wflow.celery_id))
         else:
             log.info('no open slots available -- please stand by...')
 
@@ -176,8 +176,10 @@ def state_updater():
             try:
                 log.info('checking wflow status for %s', wflow.wflow_id)
 
-                # status = status_noninteractive(wflow.wflow_id)
-                status = status_interactive(wflow.wflow_id)
+                if not wflow.context['interactive']:
+                    status = status_noninteractive(wflow.wflow_id)
+                else:
+                    status = status_interactive(wflow.wflow_id)
 
                 if status['ready']:
                     if status['success']:
@@ -186,9 +188,15 @@ def state_updater():
                         wflow.state = wdb.WorkflowState.FAILURE
                 else:
                     wflow.state = wdb.WorkflowState.ACTIVE
+
+
                 if wflow.state.value in ['FAILURE','SUCCESS']:
-                    # delete_noninteractive(wflow.wflow_id)
-                    delete_interactive(wflow.wflow_id)
+                    pass
+                    log.info('would delete but not deleting')
+                    if not wflow.context['interactive']:
+                        delete_noninteractive(wflow.wflow_id)
+                    else:
+                        delete_interactive(wflow.wflow_id)
                 wdb.db.session.add(wflow)
                 wdb.db.session.commit()
             except:

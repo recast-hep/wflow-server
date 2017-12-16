@@ -10,7 +10,6 @@ import click
 logging.basicConfig(level = logging.INFO)
 log = logging.getLogger(__name__)
 app = Flask(__name__)
-app.debug = True
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('WFLOW_DATABSE_URI','postgres://localhost')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -25,6 +24,8 @@ def wflow_submit():
     jobguid = str(uuid.uuid4())
 
     context = wflowhandlers.request_to_context(workflow_spec, jobguid)
+
+    log.info('registering context %s', context)
 
     wflowdb.register_wflow(context,queue)
     return jsonify({
