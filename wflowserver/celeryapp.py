@@ -100,6 +100,7 @@ def status_interactive(wflowid):
         status = requests.get('http://{}.default.svc.cluster.local:8080/status'.format(wflowname)).json()
         log.info('status is %s', status)
     else:
+        log.info('no available replicas for %s', wflowid)
         status =  {'ready': False, 'success': False}
     return {
         'ready': status['ready'],
