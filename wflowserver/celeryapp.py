@@ -6,7 +6,6 @@ import wflowserver.server
 import wflowserver.wflowdb as wdb
 from sqlalchemy import or_
 import yaml
-import requests
 from kubernetes import config, client
 config.load_incluster_config()
 
@@ -97,8 +96,11 @@ def status_interactive(wflowid):
     unavailable = deployment_status.unavailable_replicas
     unavailable = 0 if unavailable is None else unavailable
     available_replicas = deployment_status.replicas - unavailable
-    status = requests.get('http://{}.default.svc.cluster.local:8080/status'.format(wflowname)).json()
-    log.info('status is %s', status)
+    if available_replicas:
+        status = requests.get('http://{}.default.svc.cluster.local:8080/status'.format(wflowname)).json()
+        log.info('status is %s', status)
+    else:
+        status =  {'ready': False, 'success': False}
     return {
         'ready': status['ready'],
         'success': status['success'],
@@ -109,7 +111,7 @@ def delete_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     log.info('deleting interactive deployment %s', wflowname)
     #this should be quick and synchronous... (otherwise need to wait for it in another way)
-    status = requests.get('http://{}.default.svc.cluster.local:8080/finalize'.format(wflowname)).json()
+    status = requests.get('http://{}.default.svc.cluster.local:8080/`finalize`'.format(wflowname)).json()
     log.info('finalization status %s', status)
     client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
     client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname))
@@ -186,9 +188,8 @@ def state_updater():
                         wflow.state = wdb.WorkflowState.SUCCESS
                     else:
                         wflow.state = wdb.WorkflowState.FAILURE
-                else:
+                elif status['active']:
                     wflow.state = wdb.WorkflowState.ACTIVE
-
 
                 if wflow.state.value in ['FAILURE','SUCCESS']:
                     pass
