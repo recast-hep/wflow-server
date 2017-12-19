@@ -157,7 +157,7 @@ def deployer():
                         wflow.state = wdb.WorkflowState.STARTED
                     else:
                         log.info('starting interactive deployment')
-                        deployment, service = deploy_interactive(wflow.wflow_id)
+                        _ = deploy_interactive(wflow.wflow_id)
                         wflow.state = wdb.WorkflowState.STARTED
                     log.info('about to commit to session')
                     wdb.db.session.add(wflow)
