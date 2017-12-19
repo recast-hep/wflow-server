@@ -84,7 +84,7 @@ def deploy_interactive(wflowid):
 
     ingress['metadata']['name'] = wflowname
     rule = ingress['spec']['rules'][0]['http']['paths'][0]
-    rule['path'] = rule['path'].format(wflowid)
+    rule['path'] = rule['path'].format(wflowid = wflowid)
     rule['backend']['serviceName'] = wflowname
 
     d = client.ExtensionsV1beta1Api().create_namespaced_deployment('default',deployment)
