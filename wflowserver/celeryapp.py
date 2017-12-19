@@ -70,7 +70,7 @@ def delete_noninteractive(wflowid):
 
 def deploy_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
-    deployment, service = yaml.load_all(open('/yadage_job/int_template'))
+    deployment, service, ingress = yaml.load_all(open('/yadage_job/int_template'))
     deployment['metadata']['name'] = wflowname
     deployment['spec']['template']['metadata']['labels']['app'] = wflowname
 
@@ -79,14 +79,19 @@ def deploy_interactive(wflowid):
     cmd = cmd.format(wflowid = wflowid)
     deployment['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
 
-
     service['metadata']['name'] = wflowname
     service['spec']['selector']['app'] = wflowname
 
+    ingress['metadata']['name'] = wflowname
+    rule = ingress['spec']['rules'][0]['http']['paths'][0]
+    rule['path'] = rule['path'].format(wflowid)
+    rule['backend']['serviceName'] = wflowname
 
     d = client.ExtensionsV1beta1Api().create_namespaced_deployment('default',deployment)
     s = client.CoreV1Api().create_namespaced_service('default',service)
-    return d,s
+    i = client.ExtensionsV1beta1Api().create_namespaced_ingress('default',ingress)
+
+    return d,s,i
 
 config.load_incluster_config()
 def status_interactive(wflowid):
@@ -118,6 +123,7 @@ def delete_interactive(wflowid):
     client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname))
     client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'app={}'.format(wflowname))
     client.CoreV1Api().delete_namespaced_service(wflowname,'default')
+    client.ExtensionsV1beta1Api().delete_namespaced_ingress(wflowname,'default',client.V1DeleteOptions())
 
 @app.task
 def deployer():
