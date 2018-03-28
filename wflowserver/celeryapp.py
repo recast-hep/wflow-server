@@ -49,7 +49,10 @@ def deploy_noninteractive(wflowid):
     cmd = cmd.format(wflowid = wflowid)
     spec['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
 
+    log.info('non interactive: create job')
     j = client.BatchV1Api().create_namespaced_job('default',spec)
+    log.info('non interactive: all done')
+
     return j, None
 
 def status_noninteractive(wflowid):
@@ -87,10 +90,17 @@ def deploy_interactive(wflowid):
     rule['path'] = rule['path'].format(wflowid = wflowid)
     rule['backend']['serviceName'] = wflowname
 
+    log.info('interactive: create deployment')
     d = client.ExtensionsV1beta1Api().create_namespaced_deployment('default',deployment)
+
+    log.info('interactive: create service')
     s = client.CoreV1Api().create_namespaced_service('default',service)
+
+    log.info('interactive: create ingress')
     i = client.ExtensionsV1beta1Api().create_namespaced_ingress('default',ingress)
 
+
+    log.info('interactive: all done')
     return d,s,i
 
 config.load_incluster_config()
@@ -149,21 +159,24 @@ def deployer():
         if n_openslots > 0:
             log.info('got %s open workflow slots so we could be submitting. currently registered workflows %s', n_openslots ,all_registered)
             for wflow in all_registered[:n_openslots]:
-                log.info('working on wflow %s %s', wflow, wflow.context)
+                log.info('working on wflow %s', wflow)
                 try:
                     if not wflow.context['interactive']:
                         log.info('starting non-interactive deployment')
                         job,_ = deploy_noninteractive(wflow.wflow_id)
-                        wflow.state = wdb.WorkflowState.STARTED
+                        log.info('non-interactive deployment started')
                     else:
                         log.info('starting interactive deployment')
                         _ = deploy_interactive(wflow.wflow_id)
-                        wflow.state = wdb.WorkflowState.STARTED
+                        log.info('interactive deployment started')
+                    wflow.state = wdb.WorkflowState.STARTED
                     log.info('about to commit to session')
                     wdb.db.session.add(wflow)
                     wdb.db.session.commit()
+                except client.rest.ApiException as e:
+                    log.exception('deploy %s api access failed %s', wflow, e)
                 except:
-                    log.exception('api acces failed')
+                    log.exception('unknown exception')
         else:
             log.info('no open slots available -- please stand by...')
 
@@ -208,7 +221,7 @@ def state_updater():
                 wdb.db.session.add(wflow)
                 wdb.db.session.commit()
             except:
-                log.exception('api access failed')
+                log.error('check status %s api access failed', wflow)
     log.info('all states updated')
 
 @app.task
