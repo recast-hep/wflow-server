@@ -43,7 +43,9 @@ def deploy_noninteractive(wflowid):
     wflowname = 'wflow-nonint-{}'.format(wflowid)
     spec = yaml.load(open('/yadage_job/job_template'))
     spec['metadata']['name'] = wflowname
+    spec['metadata']['labels']['wflowid'] = wflowid
     spec['spec']['template']['metadata']['name'] = wflowname
+    spec['spec']['template']['metadata']['labels']['wflowid'] = wflowid
 
     cmd = spec['spec']['template']['spec']['containers'][0]['command'][-1]
     cmd = cmd.format(wflowid = wflowid)
@@ -66,16 +68,19 @@ def status_noninteractive(wflowid):
 
 def delete_noninteractive(wflowid):
     wflowname = 'wflow-nonint-{}'.format(wflowid)
-    log.info('deleting job %s', wflowname)
+    log.info('deleting non-interactive job %s', wflowname)
     client.BatchV1Api().delete_namespaced_job(wflowname,'default',{}, propagation_policy = 'Background')
     client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'job-name={}'.format(wflowname))
+    log.info('delete non-interactive done (%s)', wflowname)
 
 
 def deploy_interactive(wflowid):
     wflowname = 'wflow-int-{}'.format(wflowid)
     deployment, service, ingress = yaml.load_all(open('/yadage_job/int_template'))
     deployment['metadata']['name'] = wflowname
+    deployment['metadata']['labels']['wflowid'] = wflowid
     deployment['spec']['template']['metadata']['labels']['app'] = wflowname
+    deployment['spec']['template']['metadata']['labels']['wflowid'] = wflowid
 
 
     cmd = deployment['spec']['template']['spec']['containers'][0]['command'][-1]
@@ -83,24 +88,26 @@ def deploy_interactive(wflowid):
     deployment['spec']['template']['spec']['containers'][0]['command'][-1] = cmd
 
     service['metadata']['name'] = wflowname
+    service['metadata']['labels']['wflowid'] = wflowid
     service['spec']['selector']['app'] = wflowname
 
     ingress['metadata']['name'] = wflowname
+    ingress['metadata']['labels']['wflowid'] = wflowid
     rule = ingress['spec']['rules'][0]['http']['paths'][0]
     rule['path'] = rule['path'].format(wflowid = wflowid)
     rule['backend']['serviceName'] = wflowname
 
-    log.info('interactive: create deployment')
+    log.info('interactive: create deployment (%s)', wflowname)
     d = client.ExtensionsV1beta1Api().create_namespaced_deployment('default',deployment)
 
-    log.info('interactive: create service')
+    log.info('interactive: create service (%s)', wflowname)
     s = client.CoreV1Api().create_namespaced_service('default',service)
 
-    log.info('interactive: create ingress')
+    log.info('interactive: create ingress (%s)', wflowname)
     i = client.ExtensionsV1beta1Api().create_namespaced_ingress('default',ingress)
 
 
-    log.info('interactive: all done')
+    log.info('interactive: all done (%s)', wflowname)
     return d,s,i
 
 config.load_incluster_config()
@@ -115,7 +122,7 @@ def status_interactive(wflowid):
         status = requests.get('http://{}.default.svc.cluster.local:8080/status'.format(wflowname)).json()
         log.info('status is %s', status)
     else:
-        log.info('no available replicas for %s', wflowid)
+        log.info('No available replicas for workflow %s', wflowid)
         status =  {'ready': False, 'success': False}
     return {
         'ready': status['ready'],
@@ -129,11 +136,20 @@ def delete_interactive(wflowid):
     #this should be quick and synchronous... (otherwise need to wait for it in another way)
     status = requests.get('http://{}.default.svc.cluster.local:8080/finalize'.format(wflowname)).json()
     log.info('finalization status %s', status)
+
+    log.info('delete deployment')
     client.ExtensionsV1beta1Api().delete_namespaced_deployment(wflowname,'default',{'propagation_policy': 'Foreground'})
+
+    log.info('delete rs')
     client.ExtensionsV1beta1Api().delete_collection_namespaced_replica_set('default', label_selector = 'app={}'.format(wflowname))
+
+    log.info('delete pods')
     client.CoreV1Api().delete_collection_namespaced_pod('default', label_selector = 'app={}'.format(wflowname))
+    log.info('delete svc')
     client.CoreV1Api().delete_namespaced_service(wflowname,'default')
+    log.info('delete ingress')
     client.ExtensionsV1beta1Api().delete_namespaced_ingress(wflowname,'default',client.V1DeleteOptions())
+    log.info('delete interactive done')
 
 @app.task
 def deployer():
@@ -174,7 +190,7 @@ def deployer():
                     wdb.db.session.add(wflow)
                     wdb.db.session.commit()
                 except client.rest.ApiException as e:
-                    log.exception('deploy %s api access failed %s', wflow, e)
+                    log.error('deploy %s api access failed %s', wflow, e.reason)
                 except:
                     log.exception('unknown exception')
         else:
@@ -212,16 +228,15 @@ def state_updater():
                     wflow.state = wdb.WorkflowState.ACTIVE
 
                 if wflow.state.value in ['FAILURE','SUCCESS']:
-                    pass
-                    log.info('would delete but not deleting')
                     if not wflow.context['interactive']:
                         delete_noninteractive(wflow.wflow_id)
                     else:
                         delete_interactive(wflow.wflow_id)
+                log.info('status for %s is %s', wflow, wflow.state)
                 wdb.db.session.add(wflow)
                 wdb.db.session.commit()
-            except:
-                log.error('check status %s api access failed', wflow)
+            except client.rest.ApiException as e:
+                log.error('deploy %s api access failed %s', wflow, e.reason)
     log.info('all states updated')
 
 @app.task
