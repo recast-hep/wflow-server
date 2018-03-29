@@ -49,7 +49,10 @@ def subjob_msg():
     subjob_id = request.json['subjob_id']
     topic     = request.json['topic']
     try:
-        json_lines = open(os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(subjob_id,topic))).readlines()
+        logdir = '/'.join([subjob_id[i:i+2] for i in range(0,6,2)] + [subjob_id[6:]])
+        logfile = os.path.join(os.environ['WFLOW_SUBJOB_BASE'],os.environ['WFLOW_SUBJOB_TEMPLATE'].format(logdir,topic))
+        log.info('retrieving historical subjob logs from file %s', logfile)
+        json_lines = open(logfile).readlines()
         return jsonify({'msgs':[json.loads(line) for line in json_lines]})
     except IOError:
         return jsonify({'msgs':[]})
@@ -59,7 +62,10 @@ def wflow_msgs():
     workflow_id = request.json['workflow_id']
     topic = request.json['topic']
     try:
-        json_lines = open(os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(workflow_id,topic))).readlines()
+        logdir = '/'.join([workflow_id[i:i+2] for i in range(0,6,2)] + [workflow_id[6:]])
+        logfile = os.path.join(os.environ['WFLOW_WFLOW_BASE'],os.environ['WFLOW_WFLOW_TEMPLATE'].format(logdir,topic))
+        log.info('retrieving historical wflow logs from file %s', logfile)
+        json_lines = open(logfile).readlines()
         return jsonify({'msgs':[json.loads(line) for line in json_lines]})
     except IOError:
         return jsonify({'msgs':[]})
