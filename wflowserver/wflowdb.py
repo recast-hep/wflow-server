@@ -10,6 +10,7 @@ class WorkflowState(enum.Enum):
     ACTIVE     = "ACTIVE"
     FAILURE    = "FAILURE"
     SUCCESS    = "SUCCESS"
+    UNKNOWN    = "UNKNOWN"
 
 
 class Workflow(db.Model):

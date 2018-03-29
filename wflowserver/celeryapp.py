@@ -233,10 +233,12 @@ def state_updater():
                     else:
                         delete_interactive(wflow.wflow_id)
                 log.info('status for %s is %s', wflow, wflow.state)
-                wdb.db.session.add(wflow)
-                wdb.db.session.commit()
             except client.rest.ApiException as e:
                 log.error('deploy %s api access failed %s', wflow, e.reason)
+
+                wflow.state = wdb.WorkflowState.UNKNOWN
+                wdb.db.session.add(wflow)
+                wdb.db.session.commit()
     log.info('all states updated')
 
 @app.task
@@ -245,4 +247,10 @@ def reaper():
     kills workflows that seem stuck or otherwise hopeless
     '''
     log.info('we will reap the dead workflows')
-    pass
+    with wflowserver.server.app.app_context():
+        all_unknown = wdb.Workflow.query.filter(
+            wdb.Workflow.state==wdb.WorkflowState.UNKNOWN
+        ).all()
+        log.info('checking seemingly unknown workflows %s', len(all_unknown))
+        for wflow in all_unknown:
+            log.info('unknown workflow %s', wflow.wflow_id)
